@@ -5,7 +5,7 @@
  * 
  * Created By Marco Chiodo marcochio94@gmail.com
  * 
- * Version 0.5 Prototype at 11 May 2013
+ * Version 0.7 Experimental at 16 June 2013
  * 
  * 
  * */
@@ -14,24 +14,25 @@ ijax = {
 	
 	/* Configuration */
 	
-	timeFirstTransition : 500,
-	timeSecondTransition : 500,
+	timeFirstTransition : 700,
+	timeSecondTransition : 700,
 	minOpacity : 0.1,
 	maxOpacity : 1,
-	transitionImageSrc : 'loading.gif',
+	transitionImageSrc : '',
 	transitionImageWidth : 308,
 	transitionImageHeight : 181,
 	transitionImageTop : 100,
 	transitionImageLeft : 100,
 	
 	ajaxConfig : {
-		timeCache : 120000, // Millisecond
+		timeCache : 0, // Millisecond
 		type : 'get',
 		timeout : 60000, // Millisecond
 		force : false
 	},
 	
 	success_function : '',
+	sourceLoaded_function : '',
 	error_function : '',
 	first_transition_function : '',
 	second_transition_function : '',
@@ -43,6 +44,8 @@ ijax = {
 	requestDefault : {
 		state : 0,
 		response : '',
+		images : [],
+		imagesLoaded : 0,
 		expire : 0
 	},
 	
@@ -56,6 +59,9 @@ ijax = {
 		state : 0,
 		image : ''
 	},
+	
+	tail : [],
+        
 	
 	/* Utility funcition */
 	
@@ -72,6 +78,25 @@ ijax = {
 		this.requests[url]={};
 		for( var i in this.requestDefault )
 			this.requests[url][i] = this.requestDefault[i];
+	},
+	
+	isLoading : function(){
+		var is = false;
+		for( var i in this.requests )
+			if( this.requests[i].state == 1 ){
+				is = true;
+				break;
+			}
+		return is;		
+	},
+	
+	loadNext : function(){
+		for( var i in this.tail )
+			if( this.tail[i] != -1 ){
+				this.load( this.tail[i][0] , this.tail[i][1] );
+				this.tail[i] = -1;
+				break;
+			}
 	},
 	
 	requestState : function ( request ){
@@ -94,9 +119,70 @@ ijax = {
 		
 	},
 	
+	loadMedia : function( str , page ){
+
+
+		var els = $('*','<div>'+str+'</div>');
+		
+		var rgx = /background(-image)?(.*)?:(.*)?url\((.*)?['"]?(.*)["']?(.*)?\)/g;
+		var url;
+		var img = [];
+		
+
+		while( (url=rgx.exec(str)) !== null ){
+			url = url[4];
+			while( url[0] && (url[0]==' ' || url[0]=='\'' || url[0]=='"') )
+				url = url.substr( 1 );
+			while( url[0] && (url[ url.length-1]==' ' || url[ url.length -1]=='\'' || url[ url.length -1]=='"') )
+				url = url.substr( 0 , url.length-1 );
+			img.push( url )
+		}
+
+		for(var i in els)
+			if( els[i] && els[i].tagName )
+				if( els[i].tagName.toLowerCase() == 'img' )
+					img.push( url )
+
+		/*for( var i in img )
+			var imgLoad=document.createElement('img').src = img[i];*/
+			
+		this.requests[page].images = img;
+		var numImg = img.length;
+		var _this = this;
+		
+		if( numImg > 0 ){
+			for( var i in img )
+				$.ajax({
+					url: img[i],
+					cache: false,
+					type : 'get',
+					//tiemout : configuration.timeout,
+					complete:function(){
+						
+						++(_this.requests[page].imagesLoaded);
+						if( _this.requests[page].imagesLoaded == numImg ){
+							
+							_this.requests[page].state = 3;
+							_this.loadNext();
+							_this.events.success();
+							_this.updateContainer();
+							
+						}
+					},
+					error: function (){
+						++(_this.requests[page].imagesLoaded);
+					},
+				});
+		}
+		else{
+			_this.requests[page].state = 3;
+			_this.loadNext();
+			_this.events.success();
+			_this.updateContainer();
+		}
+	},
 
 	load : function( url , parameters ){
-	//	var thisClassName = this.thisClassName;
 		
 		if( parameters == null ) parameters = {};
 		
@@ -114,23 +200,29 @@ ijax = {
 
 		if( this.requests[ url ].expire <= this.time() || configuration.force == true ){
 			this.resetR( url );
-			$.ajax({
-				url: url,
-				cache: false,
-				type : configuration.type,
-				tiemout : configuration.timeout,
-				success:function( data ){
-					_this.requests[url].state = 2;
-					_this.requests[url].response = data;
-					_this.requests[url].expire = _this.time() + configuration.timeCache;
-					_this.events.success();
-					_this.updateContainer();
-				},
-				error: function (){
-					_this.requests[url].state = 0;
-					_this.events.error();
-				},
-			});
+			if( ! this.isLoading() ){
+				this.requests[url].state = 1;
+				$.ajax({
+					url: url,
+					cache: false,
+					type : configuration.type,
+					tiemout : configuration.timeout,
+					success:function( data ){
+						_this.requests[url].state = 2;
+						_this.requests[url].response = data;
+						_this.events.sourceLoaded();
+						_this.loadMedia( data , url );
+						_this.requests[url].expire = _this.time() + configuration.timeCache;
+
+					},
+					error: function (){
+						_this.requests[url].state = 0;
+						_this.events.error();
+					},
+				});
+			}
+			else
+				this.tail.push( [url,parameters] );
 		}
 
 		
@@ -142,9 +234,11 @@ ijax = {
 		this.waitContainer.div = div;
 		this.waitContainer.page = page;
 		
-		var image = data.image;
-		var title = data.title;
-		var url = data.url;
+		if( data != null){
+			var image = data.image;
+			var title = data.title;
+			var url = data.url;
+		}
 		
 		if( image == null )
 			this.waitContainer.image = this.transitionImageSrc;
@@ -171,7 +265,14 @@ ijax = {
 	  
 	  _this : this,
 	  
-	  success : function (f){
+	sourceLoaded : function(f){
+	    if( f != null )
+	      this._this.sourceLoaded_function = f;
+	    else if( this._this.sourceLoaded_function )
+		  this._this.sourceLoaded_function();
+	},
+	  
+	success : function (f){
 	    if( f != null )
 	      this._this.success_function = f;
 	    else if( this._this.success_function )
@@ -236,7 +337,7 @@ ijax = {
 				}
 			break;
 			case 2:
-				if( this.containerRequestState().state != 2 ){
+				if( this.containerRequestState().state != 3 ){
 					$( '#'+this.waitContainer.div ).css("opacity",this.maxOpacity);
 					if( this.transitionImageSrc != -1 )
 						this.setImage();
@@ -244,6 +345,7 @@ ijax = {
 				else{
 					$( '#'+this.waitContainer.div ).css("opacity",this.minOpacity);
 					$( '#'+this.waitContainer.div ).empty();
+				
 					element = $( this.containerRequestState().response );
 					element.appendTo( '#'+this.waitContainer.div );
 					
