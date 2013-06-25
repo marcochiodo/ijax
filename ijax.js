@@ -5,7 +5,7 @@
  * 
  * Created By Marco Chiodo marcochio94@gmail.com
  * 
- * Version 0.7 Experimental at 16 June 2013
+ * Version 0.7.1 Experimental at 25 June 2013
  * 
  * 
  * */
@@ -21,8 +21,8 @@ ijax = {
 	transitionImageSrc : '',
 	transitionImageWidth : 308,
 	transitionImageHeight : 181,
-	transitionImageTop : 100,
-	transitionImageLeft : 100,
+	transitionImageTop : 0,
+	transitionImageLeft : 0,
 	
 	ajaxConfig : {
 		timeCache : 0, // Millisecond
@@ -51,10 +51,9 @@ ijax = {
 	
 	currentRequest : '',
 	
-	waitContainer : {},
+	waitContainers : [],
 	
 	waitContainerDefault : {
-		div : '',
 		page : '',
 		state : 0,
 		image : ''
@@ -69,9 +68,10 @@ ijax = {
 		return new Date().getTime();
 	},
 	
-	resetWC : function(){
+	resetWC : function( div ){
+                this.waitContainers[div] = {};
 		for( var i in this.waitContainerDefault )
-			this.waitContainer[i] = this.waitContainerDefault[i];
+			this.waitContainers[div][i] = this.waitContainerDefault[i];
 	},
 	
 	resetR : function( url ){
@@ -106,16 +106,29 @@ ijax = {
 			return false;
 	},
 	
-	containerRequestState : function(){
-		if( this.waitContainer.page == '' )
+	containerRequestState : function( div ){
+		if( this.waitContainers[div].page == '' )
 			return false;
 		else
-			return this.requestState( this.waitContainer.page );
+			return this.requestState( this.waitContainers[div].page );
 	},
+        
+        requestContainerName : function( page ){
+            var ret = [];
+            for( var i in this.waitContainers )
+               if( this.waitContainers[i].page == page )
+                 ret.push( i );
+            return ret;
+        },
 	
+        updateAll : function( divToUpdate ){
+          for( var i in divToUpdate )
+            this.updateContainer( divToUpdate[i] );
+        },
+        
 	getOpacity : function( div ){
 	
-		return $( '#'+this.waitContainer.div ).css("opacity");
+		return $( '#'+div ).css("opacity");
 		
 	},
 	
@@ -127,6 +140,9 @@ ijax = {
 		var rgx = /background(-image)?(.*)?:(.*)?url\((.*)?['"]?(.*)["']?(.*)?\)/g;
 		var url;
 		var img = [];
+                var divToUpdate = this.requestContainerName( page );
+                var i;
+                
 		
 
 		while( (url=rgx.exec(str)) !== null ){
@@ -165,7 +181,7 @@ ijax = {
 							_this.requests[page].state = 3;
 							_this.loadNext();
 							_this.events.success();
-							_this.updateContainer();
+							_this.updateAll( divToUpdate );
 							
 						}
 					},
@@ -178,7 +194,7 @@ ijax = {
 			_this.requests[page].state = 3;
 			_this.loadNext();
 			_this.events.success();
-			_this.updateContainer();
+			_this.updateAll( divToUpdate );
 		}
 	},
 
@@ -230,9 +246,8 @@ ijax = {
 	
 	set : function ( div , page , data  ){
 		
-		this.resetWC();
-		this.waitContainer.div = div;
-		this.waitContainer.page = page;
+		this.resetWC( div );
+		this.waitContainers[div].page = page;
 		
 		if( data != null){
 			var image = data.image;
@@ -241,11 +256,11 @@ ijax = {
 		}
 		
 		if( image == null )
-			this.waitContainer.image = this.transitionImageSrc;
+			this.waitContainers[div].image = this.transitionImageSrc;
 		else
-			this.waitContainer.image = image;
+			this.waitContainers[div].image = image;
 						
-		this.updateContainer();
+		this.updateContainer( div );
 		
 		if( url != null )
 			window.history.replaceState( {} , '' , url );
@@ -302,56 +317,56 @@ ijax = {
 	  
 	},
 	
-	setImage : function(){
+	setImage : function( div ){
 	
 		
-		if( this.waitContainer.image != '' ){
-			var w = $( '#'+this.waitContainer.div ).width();
-			var h = $( '#'+this.waitContainer.div ).height();
+		if( this.waitContainers[div].image != '' ){
+			var w = $( '#'+div ).width();
+			var h = $( '#'+div ).height();
 		
 			var top = (h - this.transitionImageHeight) / 2;
 			var left = (w - this.transitionImageWidth) / 2;
 		
-			$( '#'+this.waitContainer.div ).empty();
-			$( '<div style="position:relative; width:100%; height:100%; margin:0; padding:0;"><div style="position:absolute; width:'+this.transitionImageWidth+'px; height:'+this.transitionImageHeight+'px; top:'+top+'px; left:'+left+'px; background:url(\''+this.transitionImageSrc+'\') -'+this.transitionImageLeft+'px -'+this.transitionImageTop+'px" /></div>' ).appendTo( '#'+this.waitContainer.div );
+			$( '#'+div ).empty();
+			$( '<div style="position:relative; width:100%; height:100%; margin:0; padding:0;"><div style="position:absolute; width:'+this.transitionImageWidth+'px; height:'+this.transitionImageHeight+'px; top:'+top+'px; left:'+left+'px; background:url(\''+this.transitionImageSrc+'\') -'+this.transitionImageLeft+'px -'+this.transitionImageTop+'px" /></div>' ).appendTo( '#'+div );
 		}
 		
 	},
 	
 	
-	updateContainer : function(){
+	updateContainer : function( div ){
 		
 		var _this=this;
-		
-		switch( this.waitContainer.state ){
+                
+		switch( this.waitContainers[div].state ){
 			case 0:
-				if( this.getOpacity( this.waitContainer.div ) != this.minOpacity ){
-					this.waitContainer.state = 1;
-					setTimeout( function(){_this.waitContainer.state=2;_this.events.endFirstTransition();} , this.timeFirstTransition + 30 );
-					setTimeout( function(){_this.updateContainer();} , this.timeFirstTransition + 50 );
-					$( '#'+this.waitContainer.div ).fadeTo( this.timeFirstTransition , this.minOpacity );
+				if( this.getOpacity( div ) != this.minOpacity ){
+					this.waitContainers[div].state = 1;
+					setTimeout( function(){_this.waitContainers[div].state=2;_this.events.endFirstTransition();} , this.timeFirstTransition + 30 );
+					setTimeout( function(){_this.updateContainer(div);} , this.timeFirstTransition + 50 );
+					$( '#'+div ).fadeTo( this.timeFirstTransition , this.minOpacity );
 				}
 				else{
-					this.waitContainer.state = 2;
-					this.updateContainer();
+					this.waitContainers[div].state = 2;
+					this.updateContainer( div );
 				}
 			break;
 			case 2:
-				if( this.containerRequestState().state != 3 ){
-					$( '#'+this.waitContainer.div ).css("opacity",this.maxOpacity);
+				if( this.containerRequestState(div).state != 3 ){
+					$( '#'+div ).css("opacity",this.maxOpacity);
 					if( this.transitionImageSrc != -1 )
-						this.setImage();
+						this.setImage(div);
 				}
 				else{
-					$( '#'+this.waitContainer.div ).css("opacity",this.minOpacity);
-					$( '#'+this.waitContainer.div ).empty();
+					$( '#'+div ).css("opacity",this.minOpacity);
+					$( '#'+div ).empty();
 				
-					element = $( this.containerRequestState().response );
-					element.appendTo( '#'+this.waitContainer.div );
+					element = $( this.containerRequestState(div).response );
+					element.appendTo( '#'+div );
 					
 					setTimeout( function(){_this.events.endSecondTransition();} , this.timeSecondTransition + 30 );
-					$( '#'+this.waitContainer.div ).fadeTo( this.timeSecondTransition , this.maxOpacity );
-					this.resetWC();
+					$( '#'+div ).fadeTo( this.timeSecondTransition , this.maxOpacity );
+					this.resetWC(div);
 				}
 			break;
 			
