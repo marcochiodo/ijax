@@ -5,7 +5,7 @@
  * 
  * Created By Marco Chiodo marcochio94@gmail.com
  * 
- * Version 0.7.1 Experimental at 25 June 2013
+ * Version 0.7.3 Experimental at 26 July 2013
  * 
  * 
  * */
@@ -31,11 +31,8 @@ ijax = {
 		force : false
 	},
 	
-	success_function : '',
-	sourceLoaded_function : '',
-	error_function : '',
-	first_transition_function : '',
-	second_transition_function : '',
+	eventsLoadFunctions : null,
+	eventsSetFunctions :null,
 	
 	/* Array of class */
 	
@@ -180,14 +177,14 @@ ijax = {
 							
 							_this.requests[page].state = 3;
 							_this.loadNext();
-							_this.events.success();
+							_this.events.success(null,page);
 							_this.updateAll( divToUpdate );
 							
 						}
 					},
 					error: function (){
 						++(_this.requests[page].imagesLoaded);
-					},
+					}
 				});
 		}
 		else{
@@ -226,15 +223,15 @@ ijax = {
 					success:function( data ){
 						_this.requests[url].state = 2;
 						_this.requests[url].response = data;
-						_this.events.sourceLoaded();
+						_this.events.sourceLoaded(null,url);
 						_this.loadMedia( data , url );
 						_this.requests[url].expire = _this.time() + configuration.timeCache;
 
 					},
 					error: function (){
 						_this.requests[url].state = 0;
-						_this.events.error();
-					},
+						_this.events.error(null,url);
+					}
 				});
 			}
 			else
@@ -278,42 +275,87 @@ ijax = {
 	
 	events : {
 	  
-	  _this : this,
+	_this : this,
 	  
-	sourceLoaded : function(f){
-	    if( f != null )
-	      this._this.sourceLoaded_function = f;
-	    else if( this._this.sourceLoaded_function )
-		  this._this.sourceLoaded_function();
+	sourceLoaded : function(f , element){
+		if( f != null ){
+			if( this._this.eventsLoadFunctions && this._this.eventsLoadFunctions[ element ])
+	      		this._this.eventsLoadFunctions[ element ].sourceLoaded_function = f;
+	      	else{
+	      		this._this.eventsLoadFunctions = [];
+	      		this._this.eventsLoadFunctions[ element ] = {};
+	      		this._this.eventsLoadFunctions[ element ].sourceLoaded_function = f;
+	      	}
+	    }
+	    else if( this._this.eventsLoadFunctions &&
+	     		this._this.eventsLoadFunctions[ element ] &&
+	      		this._this.eventsLoadFunctions[ element ].sourceLoaded_function )
+		  			this._this.eventsLoadFunctions[ element ].sourceLoaded_function();
 	},
 	  
-	success : function (f){
-	    if( f != null )
-	      this._this.success_function = f;
-	    else if( this._this.success_function )
-		  this._this.success_function();
+	success : function(f , element){
+		if( f != null ){
+			if( this._this.eventsLoadFunctions && this._this.eventsLoadFunctions[ element ] )
+	      		this._this.eventsLoadFunctions[ element ].success_function = f;
+	      	else{
+	      		this._this.eventsLoadFunctions = [];
+	      		this._this.eventsLoadFunctions[ element ] = {};
+	      		this._this.eventsLoadFunctions[ element ].success_function = f;
+	      	}
+	    }
+	    else if( this._this.eventsLoadFunctions &&
+	     		this._this.eventsLoadFunctions[ element ] &&
+	      		this._this.eventsLoadFunctions[ element ].success_function )
+		  			this._this.eventsLoadFunctions[ element ].success_function();
 	  },
 	  
-	  error : function (f){ 
-	    if( f != null )
-	      this._this.error_function = f;
-	    else if( this._this.error_function )
-		  this._this.error_function();
+	  error : function(f , element){ 
+		if( f != null ){
+			if( this._this.eventsLoadFunctions && this._this.eventsLoadFunctions[ element ] )
+	      		this._this.eventsLoadFunctions[ element ].error_function = f;
+	      	else{
+	      		this._this.eventsLoadFunctions = [];
+	      		this._this.eventsLoadFunctions[ element ] = {};
+	      		this._this.eventsLoadFunctions[ element ].error_function = f;
+	      	}
+	    }
+	    else if( this._this.eventsLoadFunctions &&
+	     		this._this.eventsLoadFunctions[ element ] &&
+	      		this._this.eventsLoadFunctions[ element ].error_function )
+		  			this._this.eventsLoadFunctions[ element ].error_function();
 	  },
 	  
-	  endFirstTransition : function (f){ 
-	    if( f != null )
-	      this._this.first_transition_function = f;
-	    else if( this._this.first_transition_function )
-		  this._this.first_transition_function();
+	  endFirstTransition : function(f , element){ 
+		if( f != null ){
+			if( this._this.eventsSetFunctions && this._this.eventsLoadFunctions[ element ] )
+	      		this._this.eventsSetFunctions[ element ].endFirstTransition_function = f;
+	      	else{
+	      		this._this.eventsSetFunctions = [];
+	      		this._this.eventsSetFunctions[ element ] = {};
+	      		this._this.eventsSetFunctions[ element ].endFirstTransition_function = f;
+	      	}
+	    }
+	    else if( this._this.eventsSetFunctions &&
+	     		this._this.eventsSetFunctions[ element ] &&
+	      		this._this.eventsSetFunctions[ element ].endFirstTransition_function )
+		  			this._this.eventsSetFunctions[ element ].endFirstTransition_function();
 	  },
 
-	  endSecondTransition : function (f){ 
-	    if( f != null )
-	      this._this.second_transition_function = f;
-	    else if( this._this.second_transition_function )
-		  this._this.second_transition_function();
-	  },
+	  endSecondTransition : function(f , element){ 
+		if( f != null ){
+			if( this._this.eventsSetFunctions && this._this.eventsLoadFunctions[ element ] )
+	      		this._this.eventsSetFunctions[ element ].endSecondTransition_function = f;
+	      	else{
+	      		this._this.eventsSetFunctions = [];
+	      		this._this.eventsSetFunctions[ element ] = {};
+	      		this._this.eventsSetFunctions[ element ].endSecondTransition_function = f;
+	      	}
+	    }
+	    else if( this._this.eventsSetFunctions &&
+	     		this._this.eventsSetFunctions[ element ] &&
+	      		this._this.eventsSetFunctions[ element ].endSecondTransition_function )
+		  			this._this.eventsSetFunctions[ element ].endSecondTransition_function();
+	  }
 	  
 	},
 	
@@ -342,7 +384,7 @@ ijax = {
 			case 0:
 				if( this.getOpacity( div ) != this.minOpacity ){
 					this.waitContainers[div].state = 1;
-					setTimeout( function(){_this.waitContainers[div].state=2;_this.events.endFirstTransition();} , this.timeFirstTransition + 30 );
+					setTimeout( function(){_this.waitContainers[div].state=2;_this.events.endFirstTransition(null,div);} , this.timeFirstTransition + 30 );
 					setTimeout( function(){_this.updateContainer(div);} , this.timeFirstTransition + 50 );
 					$( '#'+div ).fadeTo( this.timeFirstTransition , this.minOpacity );
 				}
@@ -364,7 +406,7 @@ ijax = {
 					element = $( this.containerRequestState(div).response );
 					element.appendTo( '#'+div );
 					
-					setTimeout( function(){_this.events.endSecondTransition();} , this.timeSecondTransition + 30 );
+					setTimeout( function(){_this.events.endSecondTransition(null,div);} , this.timeSecondTransition + 30 );
 					$( '#'+div ).fadeTo( this.timeSecondTransition , this.maxOpacity );
 					this.resetWC(div);
 				}
